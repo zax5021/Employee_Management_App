@@ -68,9 +68,9 @@ const menu = () => {
                         name: "removeType",
                         type: "list",
                         message: "Would you like to:",
-                        choices: ["Add Employee", "Add Department", "Add Role", ]
+                        choices: ["Remove Employee", "Remove Department", "Remove Role", ]
                     }).then(type => {
-                        switch (type.addType) {
+                        switch (type.removeType) {
                             case "Remove Employee":
                                 removeEmployee()
                                 break;
@@ -98,39 +98,333 @@ const menu = () => {
 }
 
 const viewEmployees = () => {
+    console.log("\n-----------------------\n")
     const query = `select employee.id, employee.first_name as "First Name", employee.last_name as "Last Name", role.title as "Role", role.salary as "Salary", concat(manager.first_name, " ", manager.last_name) as "Manager", department.name as "Department" from employee inner join role on role_id = role.id join department on role.department_id = department.id left join employee manager ON manager.id = employee.manager_id;`
     connection.query(query, (err, res) => {
         if (err) throw err;
         console.table(res);
+        console.log("\n-----------------------\n")
         menu();
     });
 }
-const viewEmployeesDepartment = () => { 
+const viewEmployeesDepartment = () => {
+    console.log("\n-----------------------\n")
     connection.query('SELECT * FROM department', (err, departments) => {
         if (err) throw err;
-    inquirer.prompt({
-            name: "department",
-            type: "list",
-            message: "View employees in which department?",
-            choices: departments.map((department) => ({
-                value: department.name,
-                name: `${department.name}`
-            }))
-    })
-    .then(answers => {
-        console.log(`Showing employees who work in ${answers.department}`)
-        let query = `SELECT employee.id AS id, employee.first_name AS first_name, employee.last_name AS last_name, 
-role.title AS title FROM employee JOIN role 
-ON employee.role_id = role.id JOIN department ON role.department_id = department.id WHERE ? order by id`;
+        inquirer.prompt({
+                name: "department",
+                type: "list",
+                message: "View employees in which department?",
+                choices: departments.map((department) => ({
+                    value: department.name,
+                    name: `${department.name}`
+                }))
+            })
+            .then(answers => {
+                console.log("\n-----------------------\n")
+                console.log(`Showing employees who work in ${answers.department}`)
+                let query = `SELECT employee.id AS "Employee ID", employee.first_name AS "First Name", employee.last_name AS "Last Name", 
+role.title AS "Title" FROM employee JOIN role 
+ON employee.role_id = role.id JOIN department ON role.department_id = department.id WHERE ? order by employee.id`;
 
-        connection.query(query, { name: answers.department }, function (err, res) {
+                connection.query(query, {
+                    name: answers.department
+                }, (err, res) => {
+                    if (err) throw err;
+                    console.log("-----------------------\n")
+                    console.table(res);
+                    console.log("\n-----------------------\n")
+                    menu();
+                });
+            });
+    })
+};
+const viewEmployeesRole = () => {
+    console.log("\n-----------------------\n")
+    connection.query('SELECT * FROM role', (err, roles) => {
+        if (err) throw err;
+        inquirer.prompt({
+                name: "role",
+                type: "list",
+                message: "View employees in which role?",
+                choices: roles.map((role) => ({
+                    value: role.title,
+                    name: `${role.title}`
+                }))
+            })
+            .then(answers => {
+                console.log(answers)
+                let query = `select employee.id as ID, employee.first_name as "First Name", employee.last_name as "Last Name" from employee left join role on employee.role_id = role.id where ? order by employee.id;`;
+
+                connection.query(query, {
+                    title: answers.role
+                }, (err, res) => {
+                    if (err) throw err;
+                    // if(res[0] === null) {
+                    //     console.log(`There are currently no employees with the title ${answers.role}`)
+                    //     menu();
+                    // } 
+                    console.log(`Showing employees with the title ${answers.role}`)
+                    // console.log(res)
+                    console.table(res);
+                    console.log("\n-----------------------\n")
+                    menu();
+                });
+            });
+    })
+};
+
+const addEmployee = () => {
+    console.log("\n-----------------------\n")
+    connection.query('SELECT * FROM role', (err, roles) => {
+        if (err) throw err;
+        connection.query('SELECT * FROM employee', (err, employees) => {
             if (err) throw err;
-            
-                console.table(res);
-            menu();
+            inquirer.prompt([{
+                        name: "firstName",
+                        type: "input",
+                        message: "What is the employee's first name?"
+                    },
+                    {
+                        name: "lastName",
+                        type: "input",
+                        message: "What is the employee's last name?"
+                    },
+                    {
+                        name: "role",
+                        type: "list",
+                        message: "Select a role for the employee:",
+                        choices: roles.map((role) => ({
+                            value: role.id,
+                            name: `${role.title}`
+                        }))
+                    },
+                    {
+                        name: "manager",
+                        type: "list",
+                        message: "Select a role for the employee:",
+                        //how to only show employees in the same department as the role selected? Not enough time to figure out. Also, how to use null as an option.
+                        choices: employees.map((employee) => ({
+                            value: employee.id,
+                            name: `${employee.last_name}, ${employee.first_name}`
+                        }))
+                    }
+                ])
+                .then(answer => {
+                    connection.query(`insert into employee set ?`, {
+                        first_name: answer.firstName,
+                        last_name: answer.lastName,
+                        role_id: answer.role,
+                        manager_id: answer.manager
+                    }, (err, res) => {
+                        if (err) throw err;
+                        console.log("\n-----------------------\n")
+                        console.log("New Employee Added!")
+                        menu();
+                    })
+                });
         });
     });
-})};
+};
+
+const addDepartment = () => {
+    inquirer
+        .prompt({
+            name: "departmentName",
+            type: "input",
+            message: "What is the name of the new department?"
+        })
+
+
+        .then(answer => {
+
+            connection.query(
+                "INSERT INTO department SET ?", {
+                    name: answer.departmentName,
+                },
+                (err, res) => {
+                    if (err) throw err;
+                    console.log("\n-----------------------\n")
+                    console.log("New department added!")
+                    console.log("\n-----------------------\n")
+                    menu();
+                }
+            );
+        });
+}
+
+const addRole = () => {
+    console.log("\n-----------------------\n")
+    connection.query(`SELECT id, department.name FROM department`, (err, departments) => {
+        if (err) throw err;
+        inquirer.prompt([{
+                    name: "name",
+                    type: "input",
+                    message: "What is the name of the role?"
+                },
+                {
+                    name: "salary",
+                    type: "input",
+                    message: "What is the role's salary?"
+                },
+                {
+                    name: "department",
+                    type: "list",
+                    message: "Which department to add the role?",
+                    choices: departments.map((department) => ({
+                        value: department.id,
+                        name: `${department.name}`
+                    }))
+                }
+            ])
+            .then(answer => {
+                connection.query(`INSERT INTO role SET ?`, 
+                    {
+                        title: answer.name,
+                        salary: answer.salary,
+                        department_id: answer.department
+                    },
+                    (err, res) => {
+                        if (err) throw err;
+                        console.log("\n-----------------------\n")
+                        console.log("The role has been added!")
+                        console.log("\n-----------------------\n")
+                        menu();
+                    }
+                );
+            });
+    })
+}
+
+const removeEmployee = () => {
+    
+    connection.query('SELECT * FROM employee', (err, employees) => {
+        if (err) throw err;
+        inquirer.prompt({
+            name: "removedEmployee",
+            type: "list",
+            message: "Which employee would you like to remove?",
+            choices: employees.map((employee) => ({
+                value: employee.id,
+                name: `${employee.last_name}, ${employee.first_name}`
+            }))         
+        })
+        .then(answer => {
+            connection.query(`delete from employee where ?`, 
+                {
+                    id: answer.removedEmployee
+                },
+                (err, res) => {
+                    if (err) throw err;
+                    console.log("\n-----------------------\n")
+                    console.log(`The employee has been deleted...`)
+                    console.log("\n-----------------------\n")
+                    menu();
+                }
+            );
+        })
+    });
+}
+const removeRole = () => {
+    
+    connection.query('SELECT * FROM role', (err, roles) => {
+        if (err) throw err;
+        inquirer.prompt({
+            name: "removedRole",
+            type: "list",
+            message: "Which role would you like to remove?",
+            choices: roles.map((role) => ({
+                value: role.id,
+                name: `${role.title}`
+            }))         
+        })
+        .then(answer => {
+            connection.query(`delete from role where ?`, 
+                {
+                    id: answer.removedRole
+                },
+                (err, res) => {
+                    if (err) throw err;
+                    console.log("\n-----------------------\n")
+                    console.log(`The role has been deleted...`)
+                    console.log("\n-----------------------\n")
+                    menu();
+                }
+            );
+        })
+    });
+}
+const removeDepartment = () => {
+    
+    connection.query('SELECT * FROM department', (err, departments) => {
+        if (err) throw err;
+        inquirer.prompt({
+            name: "removedDepartment",
+            type: "list",
+            message: "Which department would you like to remove?",
+            choices: departments.map((department) => ({
+                value: department.id,
+                name: `${department.name}`
+            }))         
+        })
+        .then(answer => {
+            connection.query(`delete from department where ?`, 
+                {
+                    id: answer.removedDepartment
+                },
+                (err, res) => {
+                    if (err) throw err;
+                    console.log("\n-----------------------\n")
+                    console.log(`The department has been deleted...`)
+                    console.log("\n-----------------------\n")
+                    menu();
+                }
+            );
+        })
+    });
+}
+
+const updateEmployee = () => {
+    console.log("\n-----------------------\n")
+    connection.query('SELECT * FROM role', (err, roles) => {
+        if (err) throw err;
+        connection.query('SELECT * FROM employee', (err, employees) => {
+            if (err) throw err;
+            inquirer.prompt([{
+                        name: "updatedEmployee",
+                        type: "list",
+                        message: "Which employee would you like to update?",
+                        //how to only show employees in the same department as the role selected? Not enough time to figure out. Also, how to use null as an option.
+                        choices: employees.map((employee) => ({
+                            value: employee.id,
+                            name: `${employee.last_name}, ${employee.first_name}`
+                        }))
+                    },
+                    {
+                        name: "role",
+                        type: "list",
+                        message: "Select a role for the employee:",
+                        choices: roles.map((role) => ({
+                            value: role.id,
+                            name: `${role.title}`
+                        }))
+                    }
+                ])
+                .then(answer => {
+                    connection.query(`UPDATE employee SET role_id = ? WHERE id = ?`,
+                    [answer.role, answer.updatedEmployee],
+                     (err, res) => {
+                        if (err) throw err;
+                        console.log("\n-----------------------\n")
+                        console.log("The employee's role has been updated!")
+                        console.log("\n-----------------------\n")
+                        menu();
+                    })
+                });
+        });
+    });
+};
+
 connection.connect((err) => {
     if (err) throw err;
     menu();
